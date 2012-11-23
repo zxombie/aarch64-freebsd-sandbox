@@ -1,0 +1,23 @@
+/* $FreeBSD: head/sys/conf/ldscript.arm 239547 2012-08-21 23:44:47Z gonzo $ */
+OUTPUT_ARCH(aarch64)
+ENTRY(_start)
+
+SEARCH_DIR(/usr/lib);
+SECTIONS
+{
+  /* Read-only sections, merged into text segment: */
+  . = 0;
+  .text      :
+  {
+    *(.text)
+    *(.stub)
+    /* .gnu.warning sections are handled specially by elf32.em.  */
+    *(.gnu.warning)
+    *(.gnu.linkonce.t*)
+  }
+  . = 0x80000;
+  .real_kernel :
+  {
+    *(.real_kernel)
+  }
+}
