@@ -118,7 +118,7 @@ create_pagetables:
 	sub	x27, x28, x15
 
 	/* Clean the page table */
-	mov	x6, x26
+	mov	x6, x27
 1:
 	stp	xzr, xzr, [x6], #16
 	stp	xzr, xzr, [x6], #16
