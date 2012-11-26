@@ -9,7 +9,7 @@ Toolchain
 You will need a copy of binutils and GCC for FreeBSD/AArch64.
 They are available from:
 * binutils: https://github.com/zxombie/aarch64-freebsd-binutils
-* GCC: https://github.com/zxombie/aarch64-freebsd-binutils
+* GCC: https://github.com/zxombie/aarch64-freebsd-gcc
 
 External tools
 --------------
