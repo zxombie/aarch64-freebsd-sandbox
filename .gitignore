@@ -18,3 +18,7 @@
 *.elf
 *.bin
 *.axf
+
+# Other files
+model.lds
+
