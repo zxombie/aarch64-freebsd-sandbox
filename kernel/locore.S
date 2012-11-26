@@ -105,8 +105,8 @@ virt_map:
  *   The pages used are:
  *    - The kernel L1 table (TTBR0)
  *    -  The PA = VA L2 table
- *    -  The PA != VA L2 table to jump into (not yet)
  *    - The FDT L1 table (TTBR1)            (not yet)
+ *    -  The PA != VA L2 table to jump into (not yet)
  *    -  The FDT L2 table                   (not yet)
  */
 create_pagetables:
