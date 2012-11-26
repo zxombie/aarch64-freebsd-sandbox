@@ -18,7 +18,7 @@ CPPFLAGS	+= $(INITRD_FLAGS)
 
 BOOTLOADER	:= boot.S
 MBOX_OFFSET	:= 0xfff8
-KERNEL		:= Image
+KERNEL		:= ../kernel/kernel_loader.bin
 KERNEL_OFFSET	:= 0x80000
 LD_SCRIPT	:= model.lds.S
 IMAGE		:= linux-system.axf
@@ -48,7 +48,7 @@ CHOSEN_NODE	:= chosen {						\
 		   };
 endif
 
-CROSS_COMPILE	:= aarch64-none-linux-gnu-
+CROSS_COMPILE   ?=/mnt/aturner/freebsd/armv8/build/bin/aarch64-none-freebsd10-
 CC		:= $(CROSS_COMPILE)gcc
 LD		:= $(CROSS_COMPILE)ld
 DTC		:= $(if $(wildcard ./dtc), ./dtc, $(shell which dtc))
@@ -58,7 +58,7 @@ all: $(IMAGE)
 clean:
 	rm -f $(IMAGE) boot.o model.lds fdt.dtb
 
-$(IMAGE): boot.o model.lds fdt.dtb $(KERNEL) $(FILESYSTEM)
+$(IMAGE): boot.o model.lds $(KERNEL) $(FILESYSTEM)
 	$(LD) -o $@ --script=model.lds
 
 boot.o: $(BOOTLOADER) Makefile

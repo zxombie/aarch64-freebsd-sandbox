@@ -102,7 +102,7 @@ start_ns:
 	/*
 	 * Primary CPU
 	 */
-	ldr	x0, =dtb			// device tree blob
+	//ldr	x0, =dtb			// device tree blob
 	b	kernel
 
 	.ltorg

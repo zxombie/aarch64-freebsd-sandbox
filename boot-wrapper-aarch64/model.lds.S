@@ -13,7 +13,7 @@ TARGET(binary)
 
 INPUT(./boot.o)
 INPUT(KERNEL)
-INPUT(./fdt.dtb)
+/*INPUT(./fdt.dtb)*/
 
 #ifdef USE_INITRD
 INPUT(FILESYSTEM)
@@ -30,9 +30,11 @@ SECTIONS
 	kernel = .;
 	.kernel : { KERNEL }
 
+/*
 	. = PHYS_OFFSET + FDT_OFFSET;
 	dtb = .;
 	.dtb : { ./fdt.dtb }
+*/
 	. = PHYS_OFFSET + FS_OFFSET;
 	filesystem = .;
 #ifdef USE_INITRD
