@@ -30,18 +30,6 @@ SECTIONS
 	kernel = .;
 	.kernel : { KERNEL }
 
-/*
-	. = PHYS_OFFSET + FDT_OFFSET;
-	dtb = .;
-	.dtb : { ./fdt.dtb }
-*/
-	. = PHYS_OFFSET + FS_OFFSET;
-	filesystem = .;
-#ifdef USE_INITRD
-	.filesystem : { FILESYSTEM }
-	fs_size = . - filesystem;
-#endif
-
 	.data : { *(.data) }
 	.bss : { *(.bss) }
 }
