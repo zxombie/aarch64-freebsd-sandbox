@@ -1,8 +1,6 @@
 
-CROSS_COMPILER?=/mnt/aturner/freebsd/armv8/build/bin/aarch64-none-freebsd10-
-CC=${CROSS_COMPILER}gcc
-LD=${CROSS_COMPILER}ld
-OBJCOPY=${CROSS_COMPILER}objcopy
+ROOT_DIR=${.CURDIR}/..
+include ${ROOT_DIR}/Makefile.inc
 
 LOADER_OBJECTS=linux_start.o
 OBJECTS=locore.o test.o

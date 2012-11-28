@@ -6,6 +6,9 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE.txt file.
 
+ROOT_DIR=${.CURDIR}/..
+include ${ROOT_DIR}/Makefile.inc
+
 # VE
 PHYS_OFFSET	= 0x80000000
 UART_BASE	= 0x1c090000
@@ -22,11 +25,6 @@ KERNEL		= ../kernel/kernel_loader.bin
 KERNEL_OFFSET	= 0x80000
 LD_SCRIPT	= model.lds.S
 IMAGE		= linux-system.axf
-
-CROSS_COMPILE  ?=/mnt/aturner/freebsd/armv8/build/bin/aarch64-none-freebsd10-
-CC		= $(CROSS_COMPILE)gcc
-LD		= $(CROSS_COMPILE)ld
-DTC		= $(if $(wildcard ./dtc), ./dtc, $(shell which dtc))
 
 all: $(IMAGE)
 
