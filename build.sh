@@ -1,59 +1,54 @@
 #!/bin/sh
 
-PREFIX=/mnt/aturner/freebsd/armv8/build
-FBSD_SRC=/usr/home/aturner/freebsd/head
+set -e
+
+DIRNAME=`dirname $0`
+CWD=`realpath ${DIRNAME}`
+PREFIX=${CWD}/toolchain
+BUILD_PREFIX=${PREFIX}/build
 
 TARGET=aarch64-none-freebsd10
 
-# TODO: Set MACHINE_ARCH and MACHINE_CPUARCH correctly from MACHINE
-CROSS_MAKE_ARGS="MACHINE=arm64 MACHINE_ARCH=arm64 MACHINE_CPUARCH=arm64"
-CROSS_MAKE_ARGS="${CROSS_MAKE_ARGS} CC=${PREFIX}/bin/${TARGET}-gcc"
-CROSS_MAKE_ARGS="${CROSS_MAKE_ARGS} NM=${PREFIX}/bin/${TARGET}-nm"
-
-do_binutils()
+update_git()
 {
-	cd binutils
-	./configure --prefix=${PREFIX} --target=${TARGET}
+	subdir=$1
+
+	cd ${PREFIX}
+	if [ ! -d "${subdir}" ] ; then
+		git clone git://github.com/zxombie/${subdir}.git
+	else
+		cd ${subdir}
+		git pull
+	fi
+	cd ${CWD}
+}
+
+update_binutils()
+{
+	update_git aarch64-freebsd-binutils
+}
+
+build_binutils()
+{
+	cd ${PREFIX}/aarch64-freebsd-binutils
+	./configure --prefix=${BUILD_PREFIX} --target=${TARGET}
 	gmake
 	gmake install
-	cd ..
-}
-
-do_headers()
-{
-	mtree -deU -f ${FBSD_SRC}/etc/mtree/BSD.root.dist \
-            -p ${PREFIX}/aarch64-none-freebsd10/includes >/dev/null
-        mtree -deU -f ${FBSD_SRC}/etc/mtree/BSD.usr.dist \
-            -p ${PREFIX}/aarch64-none-freebsd10/includes/usr >/dev/null
-        mtree -deU -f ${FBSD_SRC}/etc/mtree/BSD.include.dist \
-            -p ${PREFIX}/aarch64-none-freebsd10/includes/usr/include >/dev/null
-
-	CWD=$PWD
-	cd ${FBSD_SRC}
-
-	NOFUN="-DNO_FSCHG -DWITHOUT_HTML -DWITHOUT_INFO -DNO_LINT"
-	NOFUN="${NOFUN} -DWITHOUT_MAN -DWITHOUT_NLS -DNO_PROFILE"
-	NOFUN="${NOFUN} -DWITHOUT_KERBEROS -DWITHOUT_RESCUE -DNO_WARNS"
-
-	MAKE_ARGS="-m ${FBSD_SRC}/share/mk -f Makefile.inc"
-	MAKE_ARGS="${MAKE_ARGS} TARGET=arm TARGET_ARCH=arm"
-	MAKE_ARGS="${MAKE_ARGS} MACHINE=arm MACHINE_ARCH=arm"
-	MAKE_ARGS="${MAKE_ARGS} DESTDIR=${PREFIX}/${TARGET}/includes"
-
-	# TODO: Rewmove the requirement to be root here
-	sudo make ${MAKE_ARGS} par-includes
-
 	cd ${CWD}
-
-	# TODO: Create the required symlinks
 }
 
-do_gcc()
+update_gcc()
 {
-	cd gcc/aarch64-branch
+	update_git aarch64-freebsd-gcc
+}
+
+build_gcc()
+{
+	mkdir -p ${PREFIX}/aarch64-freebsd-gcc-build
+	cd ${PREFIX}/aarch64-freebsd-gcc-build
 
 	CONFIG_ARGS=""
-	CONFIG_ARGS="${CONFIG_ARGS} --prefix=${PREFIX}"
+	CONFIG_ARGS="${CONFIG_ARGS} --prefix=${BUILD_PREFIX}"
 	CONFIG_ARGS="${CONFIG_ARGS} --target=${TARGET}"
 	CONFIG_ARGS="${CONFIG_ARGS} --enable-languages=c"
 	CONFIG_ARGS="${CONFIG_ARGS} --disable-threads"
@@ -63,31 +58,20 @@ do_gcc()
 	CONFIG_ARGS="${CONFIG_ARGS} --disable-libgomp"
 	CONFIG_ARGS="${CONFIG_ARGS} --disable-libquadmath"
 	CONFIG_ARGS="${CONFIG_ARGS} --with-gmp=/usr/local"
-	./configure ${CONFIG_ARGS}
-	gmake
-	gmake install
+	${PREFIX}/aarch64-freebsd-gcc/aarch64-branch/configure ${CONFIG_ARGS}
 
-	cd ../..
+	# Only build gcc, skip libgcc for now
+	gmake all-gcc
+	gmake install-gcc
+
+	cd ${CWD}
 }
 
-do_libstand()
-{
-	cd libstand
-	make -m ${FBSD_SRC}/share/mk ${CROSS_MAKE_ARGS} -DNO_PROFILE
-	cd -
-}
+cd ${CWD}
+mkdir -p ${BUILD_PREFIX}
 
-do_loader()
-{
-	cd ${FBSD_SRC}/sys/boot/arm64/loader
-	make -m ${FBSD_SRC}/share/mk ${CROSS_MAKE_ARGS} -DNO_PROFILE -DWITHOUT_FORTH -DLOADER_ONLY
-	cd -
-
-	cp /usr/obj${FBSD_SRC}/sys/boot/arm64/loader/loader.bin /mnt/aturner/building/armv8
-}
-
-#do_binutils
-#do_headers
-#do_gcc
-#do_loader
+update_binutils
+build_binutils
+#update_gcc
+build_gcc
 
