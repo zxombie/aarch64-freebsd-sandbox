@@ -1,5 +1,5 @@
 /*-
- * Copyright (c) 2012 Andrew Turner
+ * Copyright (c) 2012, 2013 Andrew Turner
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,6 +27,8 @@
  */
 
 #include "param.h"
+
+#include "asm.h"
 #include "pte.h"
 
 	.globl	kernbase
@@ -70,9 +72,50 @@ _start:
 	b	start
 
 drop_to_el1:
-	/* TODO: Implement */
 	mrs	x1, CurrentEL
+	lsr	x1, x1, #2
+	cmp	x1, #0x2
+	b.eq	1f
 	ret
+1:
+	/* Configure the Hypervisor */
+	mov	x2, #(HCR_RW)
+	msr	hcr_el2, x2
+
+	/* Load the Virtualization Process ID Register */
+	mrs	x2, midr_el1
+	msr	vpidr_el2, x2
+
+	/* Load the Virtualization Multiprocess ID Register */
+	mrs	x2, mpidr_el1
+	msr	vmpidr_el2, x2
+
+	/* Set the bits that need to be 1 in sctlr_el1 */
+	mov	x2, SCTLR_LOWER          /* Lower 16 bits */
+	movk	x2, SCTLR_UPPER, lsl #16 /* Upper 16 bits */
+	msr	sctlr_el1, x2
+
+	/* Don't trap to EL2 for exceptions */
+	mov	x2, #CPTR_LOWER
+	msr	cptr_el2, x2
+
+	/* Don't trap to EL2 for CP15 traps */
+	msr	hstr_el2, xzr
+
+	msr	vbar_el2, xzr
+
+	/* Hypervisor trap functions */
+	/* TODO: If we need them */
+#if 0
+	adr	x2, hyp_vectors
+	msr	vbar_el2, x2
+#endif
+
+	mov	x2, #(PSR_F | PSR_I | PSR_A | PSR_D | PSR_M_EL1h)
+	msr	spsr_el2, x2
+	msr	elr_el2, x30
+
+	eret
 
 /*
  * Get the delta between the physical address we were loaded to and the
