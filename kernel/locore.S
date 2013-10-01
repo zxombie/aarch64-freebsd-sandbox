@@ -64,7 +64,7 @@ _start:
 
 	/* Enable the mmu */
 	/* TODO: Implement */
-	/*bl	start_mmu*/
+	bl	start_mmu
 
 	ldr	x29, =0x88000000
 	mov	sp, x29
@@ -91,8 +91,7 @@ drop_to_el1:
 	msr	vmpidr_el2, x2
 
 	/* Set the bits that need to be 1 in sctlr_el1 */
-	mov	x2, SCTLR_LOWER          /* Lower 16 bits */
-	movk	x2, SCTLR_UPPER, lsl #16 /* Upper 16 bits */
+	ldr	x2, =(SCTLR_RES1)
 	msr	sctlr_el1, x2
 
 	/* Don't trap to EL2 for exceptions */
@@ -173,9 +172,9 @@ create_pagetables:
 	ldr	x15, =(PAGE_SIZE)
 	/* Create the VA = PA map */
 	mov	x6, x27		/* The L1 table */
-	sub	x7, x6, x15	/* The l2 table TODO: clean it */
+	add	x7, x6, x15	/* The l2 table */
 	mov	x8, x27		/* VA start (== PA start) */
-	mov	x9, x28		/* PA start */
+	mov	x9, x27		/* PA start */
 	add	x10, x9, x15	/* PA end TODO: Get the real end */
 	
 	bl	build_pagetable
@@ -191,7 +190,7 @@ create_pagetables:
  *  x8 = VA start
  *  x9 = PA start (trashed)
  *  x10 = PA end  (trashed)
- * x11, x12 and x13 are trashed
+ *  x11, x12 and x13 are trashed
  */
 build_pagetable:
 	/*
@@ -210,12 +209,72 @@ build_pagetable:
 	 */
 	/* Find the table index */
 	lsr	x11, x8, #L2_SHIFT
-	and	x11, x11, #(512 - 1)
+	and	x11, x11, #(1 << (47 - 21) - 1)
 	ldr	x13, =L2_BLOCK
 	/* Build the L2 block entry */
 	orr	x12, x13, x11, lsl #L2_SHIFT
+	and	x11, x11, #(512 - 1)
 	str	x12, [x7, x11, lsl #3]
 	/* TODO: Move to the next address */
+
+	ret
+
+#define	MAIR(attr, idx) ((attr) << ((idx) * 8))
+
+#define	VIRT_BITS	39
+
+#define	TCR_ASID_16	(1 << 36)
+
+#define	TCR_IPS_SHIFT	32
+#define	TCR_IPS_32BIT	(0 << TCR_IPS_SHIFT)
+#define	TCR_IPS_36BIT	(1 << TCR_IPS_SHIFT)
+#define	TCR_IPS_40BIT	(2 << TCR_IPS_SHIFT)
+#define	TCR_IPS_42BIT	(3 << TCR_IPS_SHIFT)
+#define	TCR_IPS_44BIT	(4 << TCR_IPS_SHIFT)
+#define	TCR_IPS_48BIT	(5 << TCR_IPS_SHIFT)
+
+#define	TCR_TG1_SHIFT	30
+#define	TCR_TG1_16K	(1 << TCR_TG1_SHIFT)
+#define	TCR_TG1_4K	(2 << TCR_TG1_SHIFT)
+#define	TCR_TG1_64K	(3 << TCR_TG1_SHIFT)
+
+#define	TCR_T1SZ_SHIFT	16
+#define	TCR_T0SZ_SHIFT	0
+#define	TCR_TxSZ(x)	(((x) << TCR_T1SZ_SHIFT) | ((x) << TCR_T0SZ_SHIFT))
+
+#define	SCTLR_SET_BITS	(SCTLR_UCI | SCTLR_nTWE | SCTLR_nTWI | SCTLR_UCT | \
+    SCTLR_DZE | SCTLR_I | SCTLR_SED | SCTLR_M)
+#define	SCTLR_CLEAR_BITS (SCTLR_EE | SCTLR_EOE | SCTLR_WXN | SCTLR_UMA | \
+    SCTLR_ITD | SCTLR_THEE | SCTLR_CP15BEN | SCTLR_SA0 | SCTLR_SA | SCTLR_C | SCTLR_A)
+
+start_mmu:
+	dsb	sy
+
+	msr	ttbr0_el1, x27
+	msr	ttbr1_el1, x27
+	isb
+
+	msr	mdscr_el1, xzr
+
+	/* Invalidate the TLB */
+	tlbi	vmalle1is
+
+	ldr	x2, =MAIR(0x44, 0)
+	msr	mair_el1, x2
+
+	/* Setup TCR */
+	ldr	x2, =(TCR_TxSZ(VIRT_BITS) | TCR_ASID_16 | TCR_IPS_40BIT | \
+	    TCR_TG1_4K)
+	msr	tcr_el1, x2
+
+	/* Setup the sctlr */
+	ldr	x2, =(SCTLR_SET_BITS)
+	ldr	x3, =(SCTLR_CLEAR_BITS)
+	mrs	x1, sctlr_el1
+	bic	x1, x1, x3	/* Clear the required bits */
+	orr	x1, x1, x2	/* Set the required bits */
+	msr	sctlr_el1, x1
+	isb
 
 	ret
 
