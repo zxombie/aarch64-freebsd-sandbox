@@ -104,17 +104,50 @@ drop_to_el1:
 	msr	vbar_el2, xzr
 
 	/* Hypervisor trap functions */
-	/* TODO: If we need them */
-#if 0
 	adr	x2, hyp_vectors
 	msr	vbar_el2, x2
-#endif
 
 	mov	x2, #(PSR_F | PSR_I | PSR_A | PSR_D | PSR_M_EL1h)
 	msr	spsr_el2, x2
 	msr	elr_el2, x30
 
 	eret
+
+#define	VECT_ENTRY(x)	\
+    .align 7;		\
+    b	x
+
+	.text
+	.align 11
+hyp_vectors:
+	VECT_ENTRY(hyp_trap_invalid)	/* Synchronous EL2t */
+	VECT_ENTRY(hyp_trap_invalid)	/* IRQ EL2t */
+	VECT_ENTRY(hyp_trap_invalid)	/* FIQ EL2t */
+	VECT_ENTRY(hyp_trap_invalid)	/* Error EL2t */
+
+	VECT_ENTRY(hyp_trap_invalid)	/* Synchronous EL2h */
+	VECT_ENTRY(hyp_trap_invalid)	/* IRQ EL2h */
+	VECT_ENTRY(hyp_trap_invalid)	/* FIQ EL2h */
+	VECT_ENTRY(hyp_trap_invalid)	/* Error EL2h */
+
+	VECT_ENTRY(hyp_trap_sync)	/* Synchronous 64-bit EL1 */
+	VECT_ENTRY(hyp_trap_invalid)	/* IRQ 64-bit EL1 */
+	VECT_ENTRY(hyp_trap_invalid)	/* FIQ 64-bit EL1 */
+	VECT_ENTRY(hyp_trap_invalid)	/* Error 64-bit EL1 */
+
+	VECT_ENTRY(hyp_trap_invalid)	/* Synchronous 32-bit EL1 */
+	VECT_ENTRY(hyp_trap_invalid)	/* IRQ 32-bit EL1 */
+	VECT_ENTRY(hyp_trap_invalid)	/* FIQ 32-bit EL1 */
+	VECT_ENTRY(hyp_trap_invalid)	/* Error 32-bit EL1 */
+
+hyp_trap_invalid:
+	b	hyp_trap_invalid
+
+hyp_trap_sync:
+	ldr	x1, =(0x1c090000)
+	ldr	x2, =(0x41)
+	str	x2, [x1]
+	1: b	1b
 
 /*
  * Get the delta between the physical address we were loaded to and the
