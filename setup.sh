@@ -72,6 +72,6 @@ mkdir -p ${BUILD_PREFIX}
 
 update_binutils
 build_binutils
-#update_gcc
+update_gcc
 build_gcc
 
