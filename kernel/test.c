@@ -1,5 +1,5 @@
 
-static void
+void
 puthex(unsigned long long data, int length)
 {
 	volatile unsigned int *uart = (unsigned int *)0x1c090000;

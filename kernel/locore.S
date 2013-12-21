@@ -144,6 +144,23 @@ hyp_trap_invalid:
 	b	hyp_trap_invalid
 
 hyp_trap_sync:
+	ldr	x29, =0x88000000
+	mov	sp, x29
+
+	ldr	x0, =0x1c090000
+#if 1
+	at	s12e1w, x0
+	mrs	x0, par_el1
+	ldr	w1, =16
+	bl	puthex
+	1: b	1b
+#endif
+
+	mrs	x0, ttbr0_el1
+	ldr	w1, =16
+	bl	puthex
+	1: b	1b
+
 	ldr	x1, =(0x1c090000)
 	ldr	x2, =(0x41)
 	str	x2, [x1]
