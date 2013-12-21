@@ -271,7 +271,7 @@ build_pagetable:
 
 #define	MAIR(attr, idx) ((attr) << ((idx) * 8))
 
-#define	VIRT_BITS	39
+#define	VIRT_BITS	38
 
 #define	TCR_ASID_16	(1 << 36)
 
@@ -313,7 +313,7 @@ start_mmu:
 	msr	mair_el1, x2
 
 	/* Setup TCR */
-	ldr	x2, =(TCR_TxSZ(VIRT_BITS) | TCR_ASID_16 | TCR_IPS_40BIT | \
+	ldr	x2, =(TCR_TxSZ(63 - VIRT_BITS) | TCR_ASID_16 | TCR_IPS_40BIT | \
 	    TCR_TG1_4K)
 	msr	tcr_el1, x2
 
