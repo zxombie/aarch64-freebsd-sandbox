@@ -5,8 +5,8 @@ include ${ROOT_DIR}/Makefile.inc
 LOADER_OBJECTS=linux_start.o
 OBJECTS=locore.o test.o
 
-#CFLAGS=-DKERNBASE=0xffffffc000000000
-CFLAGS=-DKERNBASE=0x80100000
+CFLAGS=-DKERNBASE=0xffffff8080100000
+#CFLAGS=-DKERNBASE=0x0000000080100000
 
 all: kernel_loader.bin
 

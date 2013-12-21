@@ -63,10 +63,9 @@ _start:
 	bl	create_pagetables
 
 	/* Enable the mmu */
-	/* TODO: Implement */
 	bl	start_mmu
 
-	ldr	x29, =0x88000000
+	ldr	x29, =0xffffff8088000000
 	mov	sp, x29
 
 	b	start
@@ -143,6 +142,7 @@ hyp_vectors:
 hyp_trap_invalid:
 	b	hyp_trap_invalid
 
+/* TODO: This is broken with the move to ttbr1 */
 hyp_trap_sync:
 	ldr	x29, =0x88000000
 	mov	sp, x29
@@ -195,6 +195,8 @@ virt_map:
  *  We were loaded to an address that is on a 2MiB boundary
  *  All the memory must not cross a 1GiB boundaty
  *  x28 contains the physical address we were loaded from
+ *
+ * TODO: This is out of date.
  *  There are at least 5 pages before that address for the page tables
  *   The pages used are:
  *    - The kernel L1 table (TTBR0)
