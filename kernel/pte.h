@@ -35,6 +35,7 @@
 
 #define	L1_ADDR_SHIFT	30
 #define	L1_ADDR_MASK	(512 - 1)
+#define	L1_ADDR_BITS	((2 << L1_ADDR_SHIFT) - 1)
 
 #define	L2_INVAL	0x00
 #define	L2_BLOCK	0x01

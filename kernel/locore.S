@@ -188,7 +188,9 @@ virt_map:
 	.quad	virt_map
 
 /*
- * This builds 2 page tables, the identity map and the kernel virtual map.
+ * This builds the page tables containing the identity map, and the kernel
+ * virtual map.
+ *
  * It relys on:
  *  We were loaded to an address that is on a 2MiB boundary
  *  All the memory must not cross a 1GiB boundaty
@@ -196,7 +198,7 @@ virt_map:
  *  There are at least 5 pages before that address for the page tables
  *   The pages used are:
  *    - The kernel L1 table (TTBR0)
- *    -  The PA = VA L2 table
+ *    -  The PA = VA L2 table (1 GiB)
  *    - The FDT L1 table (TTBR1)            (not yet)
  *    -  The PA != VA L2 table to jump into (not yet)
  *    -  The FDT L2 table                   (not yet)
@@ -221,51 +223,47 @@ create_pagetables:
 
 	ldr	x15, =(PAGE_SIZE)
 	/* Create the VA = PA map */
-	mov	x6, x27		/* The L1 table */
-	add	x7, x6, x15	/* The l2 table */
-	mov	x8, x27		/* VA start (== PA start) */
-	mov	x9, x27		/* PA start */
-	add	x10, x9, x15	/* PA end TODO: Get the real end */
+	mov	x6, x27		/* The initial page table */
+	ldr	x7, =1
+	ldr	x9, =(L1_ADDR_BITS)	/* PA start */
+	bic	x9, x27, x9
+	mov	x8, x9		/* VA start (== PA start) */
 	
-	bl	build_pagetable
+	bl	build_section_pagetable
+
+	/* Create a table for the UART */
+	ldr	x7, =0
+	mov	x8, 0x10000000		/* VA start (== PA start) */
+	mov	x9, 0x10000000		/* PA start */
+	
+	bl	build_section_pagetable
 
 	/* Restore the Link register */
 	mov	x30, x5
 	ret
 
 /*
- * Builds a page table
+ * Builds a 1 GiB page table
  *  x6 = L1 table
- *  x7 = L2 table
+ *  x7 = Type (0 = Device, 1 = Normal)
  *  x8 = VA start
  *  x9 = PA start (trashed)
- *  x10 = PA end  (trashed)
  *  x11, x12 and x13 are trashed
  */
-build_pagetable:
+build_section_pagetable:
 	/*
 	 * Build the L1 table entry.
 	 */
 	/* Find the table index */
 	lsr	x11, x8, #L1_ADDR_SHIFT
 	and	x11, x11, #L1_ADDR_MASK
-	/* Build the L1 entry to an L2 table */
-	orr	x12, x7, #L1_TABLE
+	/* Build the L1 block entry */
+	lsl	x12, x7, #2
+	orr	x12, x12, #L1_BLOCK
+	orr	x12, x12, #(1 << 10) // AF bit
+	orr	x12, x12, x9
 	/* Store the entry */
 	str	x12, [x6, x11, lsl #3]
-
-	/*
-	 * Build the L2 table
-	 */
-	/* Find the table index */
-	lsr	x11, x8, #L2_SHIFT
-	and	x11, x11, #(1 << (47 - 21) - 1)
-	ldr	x13, =L2_BLOCK
-	/* Build the L2 block entry */
-	orr	x12, x13, x11, lsl #L2_SHIFT
-	and	x11, x11, #(512 - 1)
-	str	x12, [x7, x11, lsl #3]
-	/* TODO: Move to the next address */
 
 	ret
 
@@ -309,7 +307,11 @@ start_mmu:
 	/* Invalidate the TLB */
 	tlbi	vmalle1is
 
-	ldr	x2, =MAIR(0x44, 0)
+#define	MEM_ATTRS		\
+	   (MAIR(0x00, 0) |	\
+	    MAIR(0x44, 1) |	\
+	    MAIR(0xff, 2))
+	ldr	x2, =(MEM_ATTRS)
 	msr	mair_el1, x2
 
 	/* Setup TCR */
