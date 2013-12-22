@@ -65,10 +65,18 @@ _start:
 	/* Enable the mmu */
 	bl	start_mmu
 
+	ldr	x29, .Lvirtdone
+	br	x29
+
+virtdone:
+
 	ldr	x29, =0xffffff8088000000
 	mov	sp, x29
 
 	b	start
+
+.Lvirtdone:
+	.quad	virtdone
 
 drop_to_el1:
 	mrs	x1, CurrentEL
