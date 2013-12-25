@@ -228,48 +228,57 @@ create_pagetables:
 	mov	x5, x30
 
 	ldr	x15, =(PAGE_SIZE * 3)
-	/* x27 = The level 1 page table */
-	sub	x27, x28, x15
 
 	/* Clean the page table */
-	mov	x6, x27
+	adr	x6, pagetable
+	mov	x26, x6
+	add	x27, x6, x15
 1:
 	stp	xzr, xzr, [x6], #16
 	stp	xzr, xzr, [x6], #16
 	stp	xzr, xzr, [x6], #16
 	stp	xzr, xzr, [x6], #16
-	cmp	x6, x28
+	cmp	x6, x27
 	b.lo	1b
 
-	ldr	x15, =(PAGE_SIZE)
-	/* Create the VA = PA map */
-	mov	x6, x27		/* The initial page table */
-	ldr	x7, =1
-	mov	x9, x27
-	mov	x8, x9		/* VA start (== PA start) */
-	
-	bl	build_section_pagetable
 
-	/* Create a table for the UART */
-	ldr	x7, =0
-	mov	x8, 0x10000000		/* VA start (== PA start) */
-	mov	x9, 0x10000000		/* PA start */
-	
-	bl	build_section_pagetable
-
-	/* Build the TTBR1 maps */
-	sub	x26, x27, x15
+	/*
+	 * Build the TTBR1 maps.
+	 */
 
 	/* Create the kernel space L2 table */
-	sub	x6, x26, #(PAGE_SIZE)
+	mov	x6, x26
 	ldr	x7, =1
 	ldr	x8, =(KERNBASE & L2_OUT_MASK)
 	mov	x9, x28
 	bl	build_block_pagetable
 
+	/* Move to the l1 table */
+	add	x26, x26, #(PAGE_SIZE)
+
+	/* Link the l1 -> l2 table */
 	mov	x9, x6
 	mov	x6, x26
 	bl	map_l1_pagetable
+
+
+	/*
+	 * Build the TTBR0 maps.
+	 */
+	add	x27, x26, #(PAGE_SIZE)
+
+	/* Create the VA = PA map */
+	mov	x6, x27		/* The initial page table */
+	ldr	x7, =1
+	mov	x9, x27
+	mov	x8, x9		/* VA start (== PA start) */
+	bl	build_section_pagetable
+
+	/* Create a table for the UART (TODO: Remove) */
+	ldr	x7, =0
+	mov	x8, 0x10000000		/* VA start (== PA start) */
+	mov	x9, 0x10000000		/* PA start */
+	bl	build_section_pagetable
 
 	/* Restore the Link register */
 	mov	x30, x5
@@ -432,4 +441,9 @@ start_mmu:
 	isb
 
 	ret
+
+	.section .init_pagetable
+	.align 12 /* 4KiB aligned */
+pagetable:
+	.space	(PAGE_SIZE * 3) /* 3 tables */
 

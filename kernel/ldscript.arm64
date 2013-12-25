@@ -94,6 +94,8 @@ SECTIONS
    *(.dynbss)
    *(.bss)
    *(COMMON)
+   __bss_end = .;
+   *(.init_pagetable)
   }
   . = ALIGN(32 / 8);
   _end = . ;
