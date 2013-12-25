@@ -29,14 +29,28 @@
 #ifndef	_ARM64_INCLUDE_PTE_H_
 #define	_ARM64_INCLUDE_PTE_H_
 
+/*
+ * These are for 4k granules
+ */
+
+#define	VA_BITS		47
+#define	Ln_OUT_MASK(shift)	(((1 << (VA_BITS + 1 - (shift))) - 1) << (shift))
+
+/* First-level table */
 #define	L1_INVAL	0x00
 #define	L1_BLOCK	0x01
 #define	L1_TABLE	0x03
 
-#define	L1_ADDR_SHIFT	30
-#define	L1_ADDR_MASK	(512 - 1)
-#define	L1_ADDR_BITS	((2 << L1_ADDR_SHIFT) - 1)
+#define	L1_SHIFT	30
+#define	L1_SIZE		(1 << L1_SHIFT)
+#define	L1_MASK		(L1_SIZE - 1)
 
+#define	L1_IDX_MASK	(512 - 1)
+#define	L1_OUT_MASK	Ln_OUT_MASK(L1_SHIFT)
+#define	L1_TBL_MASK	Ln_OUT_MASK(12)
+
+
+/* Second-level table */
 #define	L2_INVAL	0x00
 #define	L2_BLOCK	0x01
 #define	L2_TABLE	0x03
@@ -45,6 +59,11 @@
 #define	L2_SIZE		(1 << L2_SHIFT)
 #define	L2_MASK		(L2_SIZE - 1)
 
+#define	L2_IDX_MASK	(512 - 1)
+#define	L2_OUT_MASK	Ln_OUT_MASK(L2_SHIFT)
+
+
+/* Third-level entry */
 #define	L3_INVAL	0x00
 #define	L3_PAGE		0x03
 

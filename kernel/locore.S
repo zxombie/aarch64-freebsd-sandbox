@@ -34,6 +34,8 @@
 	.globl	kernbase
 	.set	kernbase, KERNBASE
 
+#define	INIT_STACK_SIZE	(PAGE_SIZE * 4)
+
 /*
  * This follows the Linux call convention.
  * XXX: This may change.
@@ -70,7 +72,9 @@ _start:
 
 virtdone:
 
-	ldr	x29, =0xffffff8088000000
+	/* Load the initial stack */
+	adr	x29, init_stack
+	add	x29, x29, INIT_STACK_SIZE
 	mov	sp, x29
 
 	b	start
@@ -78,6 +82,11 @@ virtdone:
 .Lvirtdone:
 	.quad	virtdone
 
+	.bss
+init_stack:
+	.space	INIT_STACK_SIZE
+
+	.text
 drop_to_el1:
 	mrs	x1, CurrentEL
 	lsr	x1, x1, #2
@@ -147,15 +156,17 @@ hyp_vectors:
 	VECT_ENTRY(hyp_trap_invalid)	/* FIQ 32-bit EL1 */
 	VECT_ENTRY(hyp_trap_invalid)	/* Error 32-bit EL1 */
 
+	.data
 hyp_trap_invalid:
 	b	hyp_trap_invalid
 
+	.text
 /* TODO: This is broken with the move to ttbr1 */
 hyp_trap_sync:
 	ldr	x29, =0x88000000
 	mov	sp, x29
 
-	ldr	x0, =0x1c090000
+	ldr	x0, =0xffffff8088000000
 #if 1
 	at	s12e1w, x0
 	mrs	x0, par_el1
@@ -207,9 +218,8 @@ virt_map:
  * TODO: This is out of date.
  *  There are at least 5 pages before that address for the page tables
  *   The pages used are:
- *    - The kernel L1 table (TTBR0)
- *    -  The PA = VA L2 table (1 GiB)
- *    - The FDT L1 table (TTBR1)            (not yet)
+ *    - The identity (PA = VA) table (TTBR0)
+ *    - The Kernel L1 table          (TTBR1)(not yet)
  *    -  The PA != VA L2 table to jump into (not yet)
  *    -  The FDT L2 table                   (not yet)
  */
@@ -217,7 +227,7 @@ create_pagetables:
 	/* Save the Link register */
 	mov	x5, x30
 
-	ldr	x15, =(PAGE_SIZE * 5)
+	ldr	x15, =(PAGE_SIZE * 3)
 	/* x27 = The level 1 page table */
 	sub	x27, x28, x15
 
@@ -235,8 +245,7 @@ create_pagetables:
 	/* Create the VA = PA map */
 	mov	x6, x27		/* The initial page table */
 	ldr	x7, =1
-	ldr	x9, =(L1_ADDR_BITS)	/* PA start */
-	bic	x9, x27, x9
+	mov	x9, x27
 	mov	x8, x9		/* VA start (== PA start) */
 	
 	bl	build_section_pagetable
@@ -248,12 +257,26 @@ create_pagetables:
 	
 	bl	build_section_pagetable
 
+	/* Build the TTBR1 maps */
+	sub	x26, x27, x15
+
+	/* Create the kernel space L2 table */
+	sub	x6, x26, #(PAGE_SIZE)
+	ldr	x7, =1
+	ldr	x8, =(KERNBASE & L2_OUT_MASK)
+	mov	x9, x28
+	bl	build_block_pagetable
+
+	mov	x9, x6
+	mov	x6, x26
+	bl	map_l1_pagetable
+
 	/* Restore the Link register */
 	mov	x30, x5
 	ret
 
 /*
- * Builds a 1 GiB page table
+ * Builds a 1 GiB page table entry
  *  x6 = L1 table
  *  x7 = Type (0 = Device, 1 = Normal)
  *  x8 = VA start
@@ -265,13 +288,83 @@ build_section_pagetable:
 	 * Build the L1 table entry.
 	 */
 	/* Find the table index */
-	lsr	x11, x8, #L1_ADDR_SHIFT
-	and	x11, x11, #L1_ADDR_MASK
+	lsr	x11, x8, #L1_SHIFT
+	and	x11, x11, #L1_IDX_MASK
+
 	/* Build the L1 block entry */
 	lsl	x12, x7, #2
 	orr	x12, x12, #L1_BLOCK
 	orr	x12, x12, #(1 << 10) // AF bit
+
+	/* Only use the output address bits */
+	ldr	x13, =(L1_OUT_MASK)
+	and	x9, x9, x13
 	orr	x12, x12, x9
+
+	/* Store the entry */
+	str	x12, [x6, x11, lsl #3]
+
+	ret
+
+/*
+ * Builds an L1 -> L2 table descriptor
+ *
+ * This is a map for a 2GiB block of memory with up to 2MiB regions mapped
+ * within it by build_block_pagetable.
+ *
+ *  x6  = L1 table
+ *  x8  = Virtual Address
+ *  x9  = L2 PA
+ *  x11, x12 and x13 are trashed
+ */
+map_l1_pagetable:
+	/*
+	 * Map an L1 -> L2 table entry.
+	 */
+	/* Find the table index */
+	lsr	x11, x8, #L1_SHIFT
+	and	x11, x11, #L1_IDX_MASK
+
+	/* Build the L1 block entry */
+	orr	x12, x7, #L1_TABLE
+
+	/* Only use the output address bits */
+	ldr	x13, =(L1_TBL_MASK)
+	and	x9, x9, x13
+	orr	x12, x12, x9
+
+	/* Store the entry */
+	str	x12, [x6, x11, lsl #3]
+
+	ret
+
+/*
+ * Builds count 2 MiB page table entry
+ *  x6  = L2 table
+ *  x7  = Type (0 = Device, 1 = Normal)
+ *  x8  = VA start
+ *  x9  = PA start (trashed)
+ *  x10 = Entry count (TODO)
+ *  x11, x12 and x13 are trashed
+ */
+build_block_pagetable:
+	/*
+	 * Build the L2 table entry.
+	 */
+	/* Find the table index */
+	lsr	x11, x8, #L2_SHIFT
+	and	x11, x11, #L2_IDX_MASK
+
+	/* Build the L2 block entry */
+	lsl	x12, x7, #2
+	orr	x12, x12, #L2_BLOCK
+	orr	x12, x12, #(1 << 10) // AF bit
+
+	/* Only use the output address bits */
+	ldr	x13, =(L2_OUT_MASK)
+	and	x9, x9, x13
+	orr	x12, x12, x9
+
 	/* Store the entry */
 	str	x12, [x6, x11, lsl #3]
 
@@ -309,7 +402,7 @@ start_mmu:
 	dsb	sy
 
 	msr	ttbr0_el1, x27
-	msr	ttbr1_el1, x27
+	msr	ttbr1_el1, x26
 	isb
 
 	msr	mdscr_el1, xzr
