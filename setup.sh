@@ -31,7 +31,7 @@ update_binutils()
 build_binutils()
 {
 	cd ${PREFIX}/aarch64-freebsd-binutils
-	./configure --prefix=${BUILD_PREFIX} --target=${TARGET}
+	./configure --prefix=${BUILD_PREFIX} --target=${TARGET} --with-sysroot=yes
 	gmake
 	gmake install
 	cd ${CWD}
@@ -72,6 +72,6 @@ mkdir -p ${BUILD_PREFIX}
 
 update_binutils
 build_binutils
-update_gcc
-build_gcc
+#update_gcc
+#build_gcc
 
